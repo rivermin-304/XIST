@@ -1,1 +1,1 @@
-https://rivermin-304.github.io/touch-signal/?v=test
+https://rivermin-304.github.io/XIST/?v=test
