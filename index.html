@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>포착된 순간 — Captured Moment</title>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ▼▼▼ 여기만 수정하면 됩니다 (CONFIG) ▼▼▼
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+  const CONFIG = {
+    // R2 버킷의 공개 주소 (끝에 / 없이). 파이프라인 스크립트의 값과 반드시 동일하게.
+    // 예: "https://pub-xxxxxxxx.r2.dev"  또는  커스텀 도메인
+    R2_BASE: "https://pub-XXXXXXXXXXXX.r2.dev",
+
+    // 영상 파일 확장자
+    EXT: ".mp4",
+
+    // 화면에 표시할 설치작품 이름
+    TITLE: "TOUCH / SIGNAL",
+    SUBTITLE: "Interactive Media Art",
+
+    // 다운로드 파일 이름 접두어 (관객이 저장할 때 파일명)
+    DOWNLOAD_PREFIX: "moment_",
+  };
+</script>
+<!-- ═══════════════════════════════════════════════════════════
+     ▲▲▲ CONFIG 끝 ▲▲▲
+     ═══════════════════════════════════════════════════════════ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"/>
+
+<style>
+  :root{
+    --bg:#100F0D;
+    --surface:#1A1815;
+    --line:#2B2823;
+    --text:#EAE4DB;
+    --muted:#7E766B;
+    --rec:#FF463A;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Space Grotesk","Pretendard Variable",Pretendard,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    justify-content:center;
+    padding:24px 20px calc(24px + env(safe-area-inset-bottom));
+    min-height:100%;
+  }
+  .wrap{width:100%;max-width:440px;display:flex;flex-direction:column;gap:22px}
+
+  /* ── 상단 바: REC 인디케이터 + 작품명 ── */
+  .topbar{display:flex;align-items:center;justify-content:space-between}
+  .rec{display:flex;align-items:center;gap:8px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.14em;color:var(--muted)}
+  .rec .dot{width:9px;height:9px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 0 rgba(255,70,58,.5);animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,70,58,.5)}70%{box-shadow:0 0 0 8px rgba(255,70,58,0)}100%{box-shadow:0 0 0 0 rgba(255,70,58,0)}}
+  .brand{text-align:right;line-height:1.25}
+  .brand b{display:block;font-weight:700;letter-spacing:.06em;font-size:14px}
+  .brand span{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+  /* ── 영상 프레임 ── */
+  .frame{position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#000;aspect-ratio:9/16}
+  .frame video{width:100%;height:100%;object-fit:cover;display:block}
+  .tc{position:absolute;left:12px;bottom:11px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.08em;color:#fff;background:rgba(0,0,0,.42);padding:3px 8px;border-radius:6px;backdrop-filter:blur(4px)}
+  .corner{position:absolute;top:11px;right:12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;color:rgba(255,255,255,.75)}
+
+  /* ── 헤드라인 ── */
+  .head h1{font-size:26px;font-weight:500;line-height:1.18;letter-spacing:-.01em}
+  .head p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+
+  /* ── 버튼 ── */
+  .actions{display:flex;flex-direction:column;gap:10px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    height:54px;border-radius:12px;border:none;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:500;letter-spacing:.01em;
+    transition:transform .08s ease,opacity .2s ease;text-decoration:none;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn.primary{background:var(--text);color:var(--bg)}
+  .btn.primary:disabled{opacity:.4;cursor:default}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn svg{width:18px;height:18px}
+  .spin{width:16px;height:16px;border:2px solid rgba(16,15,13,.35);border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── 하단 메타 ── */
+  .meta{display:flex;justify-content:space-between;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+
+  /* ── 빈 상태 / 에러 ── */
+  .state{text-align:center;padding:60px 0}
+  .state .code{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.2em;color:var(--rec)}
+  .state h2{margin-top:14px;font-weight:500;font-size:20px}
+  .state p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+
+  @media (prefers-reduced-motion:reduce){.rec .dot{animation:none}.spin{animation-duration:0s}}
+</style>
+</head>
+<body>
+  <main class="wrap" id="app"><!-- JS가 채웁니다 --></main>
+
+<script>
+  const app = document.getElementById("app");
+
+  // URL에서 영상 ID 읽기:  .../index.html?v=a1b2c3d4
+  const vid = new URLSearchParams(location.search).get("v");
+
+  // 유효성: 파일명 조작 방지 (영문/숫자/_/- 만 허용)
+  const valid = vid && /^[A-Za-z0-9_-]{1,64}$/.test(vid);
+
+  if(!valid){
+    app.innerHTML = `
+      <div class="state">
+        <div class="code">NO SIGNAL — 404</div>
+        <h2>영상을 찾을 수 없어요</h2>
+        <p>영수증의 QR 코드를 다시 스캔해 주세요.<br>코드가 손상되었을 수 있습니다.</p>
+      </div>`;
+  } else {
+    const url = `${CONFIG.R2_BASE}/${vid}${CONFIG.EXT}`;
+    const filename = `${CONFIG.DOWNLOAD_PREFIX}${vid}${CONFIG.EXT}`;
+
+    app.innerHTML = `
+      <header class="topbar">
+        <div class="rec"><span class="dot"></span>REC · 00:05</div>
+        <div class="brand"><b>${CONFIG.TITLE}</b><span>${CONFIG.SUBTITLE}</span></div>
+      </header>
+
+      <div class="frame">
+        <video id="v" src="${url}" autoplay muted loop playsinline preload="auto"></video>
+        <div class="corner">ID · ${vid}</div>
+        <div class="tc" id="tc">00:00 / 00:05</div>
+      </div>
+
+      <div class="head">
+        <h1>당신의 5초가<br>기록되었습니다.</h1>
+        <p>설치 앞에서 만들어진 이 순간은 당신의 것입니다. 아래에서 영상을 저장하세요.</p>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="dl">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+          영상 저장하기
+        </button>
+        <button class="btn ghost" id="share">공유하기</button>
+      </div>
+
+      <div class="meta">
+        <span>CAPTURED</span>
+        <span>${CONFIG.EXT.replace('.','').toUpperCase()} · 5S</span>
+      </div>`;
+
+    // 타임코드 표시
+    const v = document.getElementById("v");
+    const tc = document.getElementById("tc");
+    const fmt = s => "00:" + String(Math.floor(s)).padStart(2,"0");
+    v.addEventListener("timeupdate", ()=>{ tc.textContent = `${fmt(v.currentTime)} / 00:05`; });
+
+    // 저장 버튼: blob으로 받아 강제 다운로드 (CORS 허용 시). 실패하면 새 탭으로 폴백.
+    const dl = document.getElementById("dl");
+    const original = dl.innerHTML;
+    dl.addEventListener("click", async ()=>{
+      dl.disabled = true;
+      dl.innerHTML = `<span class="spin"></span> 저장 중…`;
+      try{
+        const res = await fetch(url);
+        if(!res.ok) throw new Error(res.status);
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+        dl.innerHTML = `저장 완료 ✓`;
+      }catch(e){
+        // CORS 미설정 등 → 직접 열기
+        window.open(url, "_blank");
+        dl.innerHTML = `새 탭에서 열림`;
+      }finally{
+        setTimeout(()=>{ dl.disabled=false; dl.innerHTML=original; }, 2200);
+      }
+    });
+
+    // 공유 버튼: 모바일 네이티브 공유 or 링크 복사
+    const share = document.getElementById("share");
+    share.addEventListener("click", async ()=>{
+      const shareUrl = location.href;
+      if(navigator.share){
+        try{ await navigator.share({title:CONFIG.TITLE, url:shareUrl}); }catch(e){}
+      }else{
+        try{ await navigator.clipboard.writeText(shareUrl); share.textContent="링크 복사됨 ✓"; setTimeout(()=>share.textContent="공유하기",1800); }catch(e){}
+      }
+    });
+  }
+</script>
+</body>
+</html>
