@@ -34,7 +34,7 @@ CONFIG = {
     "R2_PUBLIC_BASE": "https://pub-XXXXXXXXXXXX.r2.dev",
 
     # ── 다운로드 페이지 주소 (GitHub Pages). QR에는 이 주소가 들어감 ──
-    "PAGE_BASE": "https://rivermin-304.github.io/touch-signal/",
+    "PAGE_BASE": "https://rivermin-304.github.io/XIST/",
 
     # ── 영수증 프린터 (USB) : lsusb / 장치관리자에서 확인한 값 ──
     # EPSON TM-T20 예시: 0x04b8 / 0x0e15
