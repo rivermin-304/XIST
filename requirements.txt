@@ -1,0 +1,4 @@
+boto3
+qrcode[pil]
+watchdog
+python-escpos
