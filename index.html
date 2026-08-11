@@ -2,26 +2,20 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>포착된 순간 — Captured Moment</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#05070A">
+<title>SIGNAL — Captured Moment</title>
 
 <!-- ═══════════════════════════════════════════════════════════
-     ▼▼▼ 여기만 수정하면 됩니다 (CONFIG) ▼▼▼
+     ▼▼▼ 여기만 수정하세요 (CONFIG) ▼▼▼
      ═══════════════════════════════════════════════════════════ -->
 <script>
   const CONFIG = {
-    // R2 버킷의 공개 주소 (끝에 / 없이). 파이프라인 스크립트의 값과 반드시 동일하게.
-    // 예: "https://pub-xxxxxxxx.r2.dev"  또는  커스텀 도메인
+    // R2 버킷 공개 주소 (끝에 / 없이). pipeline.py의 R2_PUBLIC_BASE와 반드시 동일!
     R2_BASE: "https://pub-XXXXXXXXXXXX.r2.dev",
-
-    // 영상 파일 확장자
     EXT: ".mp4",
-
-    // 화면에 표시할 설치작품 이름
     TITLE: "TOUCH / SIGNAL",
     SUBTITLE: "Interactive Media Art",
-
-    // 다운로드 파일 이름 접두어 (관객이 저장할 때 파일명)
     DOWNLOAD_PREFIX: "moment_",
   };
 </script>
@@ -31,175 +25,370 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"/>
 
 <style>
   :root{
-    --bg:#100F0D;
-    --surface:#1A1815;
-    --line:#2B2823;
-    --text:#EAE4DB;
-    --muted:#7E766B;
-    --rec:#FF463A;
-    --radius:14px;
+    --bg:#05070A;
+    --surface:#0B0F14;
+    --line:rgba(31,224,220,.14);
+    --line-soft:rgba(255,255,255,.06);
+    --text:#E4EEF0;
+    --muted:#5F7175;
+    --cyan:#1FE0DC;
+    --cyan-dim:#0E8C8A;
+    --glow:rgba(31,224,220,.55);
   }
-  *{box-sizing:border-box;margin:0;padding:0}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
+  html{-webkit-text-size-adjust:100%}
   body{
     background:var(--bg);
     color:var(--text);
     font-family:"Space Grotesk","Pretendard Variable",Pretendard,sans-serif;
     -webkit-font-smoothing:antialiased;
-    display:flex;
-    justify-content:center;
-    padding:24px 20px calc(24px + env(safe-area-inset-bottom));
+    overflow-x:hidden;
     min-height:100%;
+    min-height:100dvh;
   }
-  .wrap{width:100%;max-width:440px;display:flex;flex-direction:column;gap:22px}
 
-  /* ── 상단 바: REC 인디케이터 + 작품명 ── */
+  /* 배경 파티클 캔버스 (시그니처) */
+  #bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+  /* 하단 비네트로 텍스트 가독성 확보 */
+  .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(120% 80% at 50% 8%, transparent 40%, rgba(5,7,10,.55) 78%, var(--bg) 100%)}
+
+  .wrap{position:relative;z-index:2;width:100%;max-width:460px;margin:0 auto;
+    min-height:100dvh;display:flex;flex-direction:column;
+    padding:max(26px,env(safe-area-inset-top)) 22px calc(26px + env(safe-area-inset-bottom));
+    gap:20px}
+
+  /* 상단 바 */
   .topbar{display:flex;align-items:center;justify-content:space-between}
-  .rec{display:flex;align-items:center;gap:8px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.14em;color:var(--muted)}
-  .rec .dot{width:9px;height:9px;border-radius:50%;background:var(--rec);box-shadow:0 0 0 0 rgba(255,70,58,.5);animation:pulse 1.6s ease-out infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,70,58,.5)}70%{box-shadow:0 0 0 8px rgba(255,70,58,0)}100%{box-shadow:0 0 0 0 rgba(255,70,58,0)}}
-  .brand{text-align:right;line-height:1.25}
-  .brand b{display:block;font-weight:700;letter-spacing:.06em;font-size:14px}
-  .brand span{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .eyebrow{display:flex;align-items:center;gap:9px;font-family:"Space Mono",monospace;
+    font-size:11px;letter-spacing:.22em;color:var(--cyan);text-transform:uppercase}
+  .eyebrow .node{width:7px;height:7px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 8px 1px var(--glow);animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.5;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+  .brand{text-align:right;line-height:1.3}
+  .brand b{display:block;font-weight:600;font-size:13px;letter-spacing:.04em}
+  .brand span{font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted)}
 
-  /* ── 영상 프레임 ── */
-  .frame{position:relative;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#000;aspect-ratio:9/16}
+  /* 영상 프레임 */
+  .stage{margin-top:4px}
+  .frame{position:relative;border-radius:16px;overflow:hidden;background:#000;
+    aspect-ratio:16/9;
+    border:1px solid var(--line);
+    box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 20px 60px -20px rgba(31,224,220,.25),
+      inset 0 0 40px rgba(31,224,220,.04)}
   .frame video{width:100%;height:100%;object-fit:cover;display:block}
-  .tc{position:absolute;left:12px;bottom:11px;font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.08em;color:#fff;background:rgba(0,0,0,.42);padding:3px 8px;border-radius:6px;backdrop-filter:blur(4px)}
-  .corner{position:absolute;top:11px;right:12px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;color:rgba(255,255,255,.75)}
+  .frame .fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    flex-direction:column;gap:10px;color:var(--muted);font-family:"Space Mono",monospace;
+    font-size:11px;letter-spacing:.1em;text-align:center;padding:20px}
+  .frame.error .fallback{display:flex}
+  .frame.error video{opacity:0}
+  .tc{position:absolute;left:12px;bottom:11px;font-family:"Space Mono",monospace;font-size:11px;
+    letter-spacing:.06em;color:#dffcfb;background:rgba(5,7,10,.5);padding:3px 8px;border-radius:7px;
+    backdrop-filter:blur(6px);border:1px solid var(--line)}
+  .idtag{position:absolute;top:11px;right:12px;font-family:"Space Mono",monospace;font-size:9px;
+    letter-spacing:.14em;color:rgba(223,252,251,.7);background:rgba(5,7,10,.4);
+    padding:2px 7px;border-radius:6px;backdrop-filter:blur(6px)}
+  .scan{position:absolute;left:0;right:0;top:0;height:2px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+    box-shadow:0 0 12px 2px var(--glow);opacity:.7;animation:scan 3.2s linear infinite}
+  @keyframes scan{0%{top:0}50%{top:100%}100%{top:0}}
 
-  /* ── 헤드라인 ── */
-  .head h1{font-size:26px;font-weight:500;line-height:1.18;letter-spacing:-.01em}
-  .head p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+  /* 헤드라인 */
+  .head{padding:2px 2px 0}
+  .head h1{font-size:27px;font-weight:500;line-height:1.22;letter-spacing:-.015em}
+  .head h1 em{font-style:normal;color:var(--cyan);text-shadow:0 0 20px var(--glow)}
+  .head p{margin-top:10px;color:var(--muted);font-size:13.5px;line-height:1.55;max-width:34ch}
 
-  /* ── 버튼 ── */
+  .spacer{flex:1;min-height:8px}
+
+  /* 액션 */
   .actions{display:flex;flex-direction:column;gap:10px}
-  .btn{
-    display:flex;align-items:center;justify-content:center;gap:10px;
-    height:54px;border-radius:12px;border:none;cursor:pointer;
-    font-family:inherit;font-size:15px;font-weight:500;letter-spacing:.01em;
-    transition:transform .08s ease,opacity .2s ease;text-decoration:none;
-  }
-  .btn:active{transform:scale(.985)}
-  .btn.primary{background:var(--text);color:var(--bg)}
-  .btn.primary:disabled{opacity:.4;cursor:default}
-  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    height:56px;border-radius:14px;border:none;cursor:pointer;font-family:inherit;
+    font-size:15px;font-weight:600;letter-spacing:.01em;transition:transform .08s,box-shadow .25s,opacity .2s}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{color:#04211f;background:var(--cyan);
+    box-shadow:0 0 0 1px rgba(31,224,220,.6), 0 12px 34px -8px var(--glow)}
+  .btn.primary:disabled{opacity:.55;cursor:default;box-shadow:none}
+  .btn.ghost{background:rgba(255,255,255,.03);color:var(--text);border:1px solid var(--line)}
   .btn svg{width:18px;height:18px}
-  .spin{width:16px;height:16px;border:2px solid rgba(16,15,13,.35);border-top-color:var(--bg);border-radius:50%;animation:spin .7s linear infinite}
+  .spin{width:16px;height:16px;border:2px solid rgba(4,33,31,.35);border-top-color:#04211f;
+    border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  /* ── 하단 메타 ── */
-  .meta{display:flex;justify-content:space-between;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+  /* 메타 */
+  .meta{display:flex;justify-content:space-between;align-items:center;
+    font-family:"Space Mono",monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);border-top:1px solid var(--line-soft);padding-top:15px}
+  .meta .dot{color:var(--cyan-dim)}
 
-  /* ── 빈 상태 / 에러 ── */
-  .state{text-align:center;padding:60px 0}
-  .state .code{font-family:"Space Mono",monospace;font-size:12px;letter-spacing:.2em;color:var(--rec)}
-  .state h2{margin-top:14px;font-weight:500;font-size:20px}
-  .state p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5}
+  /* 빈 상태 */
+  .state{position:relative;z-index:2;max-width:460px;margin:0 auto;min-height:100dvh;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:40px 30px;gap:6px}
+  .state .code{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.28em;
+    color:var(--cyan);text-transform:uppercase}
+  .state h2{margin-top:16px;font-weight:500;font-size:21px;letter-spacing:-.01em}
+  .state p{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.55}
 
-  @media (prefers-reduced-motion:reduce){.rec .dot{animation:none}.spin{animation-duration:0s}}
+  @media (max-width:360px){.head h1{font-size:24px}}
+  @media (prefers-reduced-motion:reduce){
+    .eyebrow .node,.scan{animation:none}.spin{animation-duration:0s}
+  }
 </style>
 </head>
 <body>
-  <main class="wrap" id="app"><!-- JS가 채웁니다 --></main>
+  <canvas id="bg"></canvas>
+  <div class="vignette"></div>
+  <main id="app"></main>
 
 <script>
-  const app = document.getElementById("app");
+/* ── 파티클 구체 (설치작품 모티프) ───────────────────────── */
+(function(){
+  const canvas = document.getElementById("bg");
+  const ctx = canvas.getContext("2d");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W,H,DPR,cx,cy,R,pts,raf,t=0;
 
-  // URL에서 영상 ID 읽기:  .../index.html?v=a1b2c3d4
-  const vid = new URLSearchParams(location.search).get("v");
-
-  // 유효성: 파일명 조작 방지 (영문/숫자/_/- 만 허용)
-  const valid = vid && /^[A-Za-z0-9_-]{1,64}$/.test(vid);
-
-  if(!valid){
-    app.innerHTML = `
-      <div class="state">
-        <div class="code">NO SIGNAL — 404</div>
-        <h2>영상을 찾을 수 없어요</h2>
-        <p>영수증의 QR 코드를 다시 스캔해 주세요.<br>코드가 손상되었을 수 있습니다.</p>
-      </div>`;
-  } else {
-    const url = `${CONFIG.R2_BASE}/${vid}${CONFIG.EXT}`;
-    const filename = `${CONFIG.DOWNLOAD_PREFIX}${vid}${CONFIG.EXT}`;
-
-    app.innerHTML = `
-      <header class="topbar">
-        <div class="rec"><span class="dot"></span>REC · 00:05</div>
-        <div class="brand"><b>${CONFIG.TITLE}</b><span>${CONFIG.SUBTITLE}</span></div>
-      </header>
-
-      <div class="frame">
-        <video id="v" src="${url}" autoplay muted loop playsinline preload="auto"></video>
-        <div class="corner">ID · ${vid}</div>
-        <div class="tc" id="tc">00:00 / 00:05</div>
-      </div>
-
-      <div class="head">
-        <h1>당신의 5초가<br>기록되었습니다.</h1>
-        <p>설치 앞에서 만들어진 이 순간은 당신의 것입니다. 아래에서 영상을 저장하세요.</p>
-      </div>
-
-      <div class="actions">
-        <button class="btn primary" id="dl">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
-          영상 저장하기
-        </button>
-        <button class="btn ghost" id="share">공유하기</button>
-      </div>
-
-      <div class="meta">
-        <span>CAPTURED</span>
-        <span>${CONFIG.EXT.replace('.','').toUpperCase()} · 5S</span>
-      </div>`;
-
-    // 타임코드 표시
-    const v = document.getElementById("v");
-    const tc = document.getElementById("tc");
-    const fmt = s => "00:" + String(Math.floor(s)).padStart(2,"0");
-    v.addEventListener("timeupdate", ()=>{ tc.textContent = `${fmt(v.currentTime)} / 00:05`; });
-
-    // 저장 버튼: blob으로 받아 강제 다운로드 (CORS 허용 시). 실패하면 새 탭으로 폴백.
-    const dl = document.getElementById("dl");
-    const original = dl.innerHTML;
-    dl.addEventListener("click", async ()=>{
-      dl.disabled = true;
-      dl.innerHTML = `<span class="spin"></span> 저장 중…`;
-      try{
-        const res = await fetch(url);
-        if(!res.ok) throw new Error(res.status);
-        const blob = await res.blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = filename;
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(a.href);
-        dl.innerHTML = `저장 완료 ✓`;
-      }catch(e){
-        // CORS 미설정 등 → 직접 열기
-        window.open(url, "_blank");
-        dl.innerHTML = `새 탭에서 열림`;
-      }finally{
-        setTimeout(()=>{ dl.disabled=false; dl.innerHTML=original; }, 2200);
-      }
-    });
-
-    // 공유 버튼: 모바일 네이티브 공유 or 링크 복사
-    const share = document.getElementById("share");
-    share.addEventListener("click", async ()=>{
-      const shareUrl = location.href;
-      if(navigator.share){
-        try{ await navigator.share({title:CONFIG.TITLE, url:shareUrl}); }catch(e){}
-      }else{
-        try{ await navigator.clipboard.writeText(shareUrl); share.textContent="링크 복사됨 ✓"; setTimeout(()=>share.textContent="공유하기",1800); }catch(e){}
-      }
-    });
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = canvas.clientWidth = window.innerWidth;
+    H = canvas.clientHeight = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    cx = W*0.5; cy = H*0.28;                 // 구체는 화면 상단에 위치
+    R  = Math.min(W,H)*0.34;
   }
+  const pointer = {x:0, y:0, active:false, burst:0};   // 상호작용 상태
+  const ripples = [];                                  // 잉크 번짐 효과
+  function build(){
+    const N = W < 480 ? 460 : 720;           // 모바일에선 입자 수 줄임
+    pts = [];
+    for(let i=0;i<N;i++){
+      const y = 1 - (i/(N-1))*2;             // 피보나치 구
+      const r = Math.sqrt(1-y*y);
+      const th = i*2.399963229;
+      // ox/oy: 화면상 변위, vx/vy: 속도 (누르면 밀리고 스프링으로 복귀)
+      pts.push({x:Math.cos(th)*r, y:y, z:Math.sin(th)*r, s:Math.random(), ox:0,oy:0,vx:0,vy:0});
+    }
+  }
+  function draw(){
+    t += reduce ? 0 : 0.0016;
+    ctx.clearRect(0,0,W,H);
+    const cosA=Math.cos(t), sinA=Math.sin(t);
+    const cosB=Math.cos(t*0.5), sinB=Math.sin(t*0.5);
+    const RAD = Math.min(W,H)*0.55;          // 반발 영향 반경 (넓게)
+    const spring=0.02, damp=0.86;            // 복귀 느리게, 움직임 부드럽게
+    const interacting = pointer.active || pointer.burst>0.01;
+    ctx.globalCompositeOperation="lighter";
+
+    // 잉크 번짐: 누른 지점에서 시안 빛이 퍼졌다 옅어짐
+    for(let i=ripples.length-1;i>=0;i--){
+      const rp=ripples[i];
+      rp.r += (RAD*1.15 - rp.r)*0.018;  // 더 천천히 커지며 감속
+      rp.a *= 0.972;                     // 여운 길게
+      if(rp.a<0.008){ ripples.splice(i,1); continue; }
+      const g=ctx.createRadialGradient(rp.x,rp.y,0, rp.x,rp.y,rp.r);
+      g.addColorStop(0,   `rgba(150,255,252,${rp.a*1.0})`);
+      g.addColorStop(0.25,`rgba(60,242,238,${rp.a*0.6})`);
+      g.addColorStop(0.55,`rgba(31,224,220,${rp.a*0.3})`);
+      g.addColorStop(1,   `rgba(31,224,220,0)`);
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(rp.x,rp.y,rp.r,0,6.2832); ctx.fill();
+    }
+
+    for(const p of pts){
+      // Y축 + X축 회전
+      let x=p.x*cosA - p.z*sinA;
+      let z=p.x*sinA + p.z*cosA;
+      let y=p.y*cosB - z*sinB;
+      z = p.y*sinB + z*cosB;
+      const depth=(z+1.6)/2.6;               // 0~1 앞뒤
+      const bx=cx + x*R;                      // 회전만 반영한 기준 위치
+      const by=cy + y*R;
+
+      // 스프링: 원위치로 복귀
+      p.vx += -p.ox*spring;  p.vy += -p.oy*spring;
+
+      // 포인터 반발 (누른 지점에서 바깥으로 밀어냄)
+      if(interacting){
+        const dx=(bx+p.ox)-pointer.x, dy=(by+p.oy)-pointer.y;
+        const d=Math.hypot(dx,dy);
+        if(d<RAD && d>0.01){
+          const f=(1 - d/RAD);
+          const push=(pointer.active?1.1:0) + pointer.burst*2.4;   // 완만하게 밀어냄
+          p.vx += (dx/d)*f*push;
+          p.vy += (dy/d)*f*push;
+        }
+      }
+      p.vx*=damp;  p.vy*=damp;
+      p.ox+=p.vx;  p.oy+=p.vy;
+
+      const px=bx+p.ox, py=by+p.oy;
+      const size=(0.5+depth*1.6);
+      const alpha=(0.06+depth*0.5)*(0.5+p.s*0.5);
+      // 시안↔화이트 사이 (앞쪽일수록 밝은 화이트)
+      const mix = depth*depth;
+      const cr=Math.round(31+(224-31)*mix);
+      const cg=Math.round(224+(238-224)*mix);
+      const cb=Math.round(220+(240-220)*mix);
+      ctx.beginPath();
+      ctx.arc(px,py,size,0,6.2832);
+      ctx.fillStyle=`rgba(${cr},${cg},${cb},${alpha})`;
+      ctx.fill();
+    }
+    if(pointer.burst>0.01) pointer.burst*=0.955;  // 여운 오래 → 서서히 멀리 퍼짐
+    ctx.globalCompositeOperation="source-over";
+    raf=requestAnimationFrame(draw);
+  }
+
+  // 포인터 상호작용 — 캔버스는 pointer-events:none 이므로
+  // window에서 좌표만 읽어 버튼 탭을 막지 않음
+  let lastRx=0, lastRy=0;                         // 마지막 번짐 생성 위치
+  function setP(e){ const s=e.touches?e.touches[0]:e; if(!s)return; pointer.x=s.clientX; pointer.y=s.clientY; }
+  function spawnRipple(x,y,a){
+    ripples.push({x, y, r:6, a});
+    if(ripples.length>16) ripples.shift();        // 궤적용으로 여유 있게
+    lastRx=x; lastRy=y;
+  }
+  window.addEventListener("pointerdown", e=>{ setP(e); pointer.active=true; pointer.burst=1;
+    spawnRipple(pointer.x, pointer.y, 1.5);
+  }, {passive:true});
+  window.addEventListener("pointermove", e=>{ setP(e);
+    // 드래그 중이면 일정 거리마다 번짐을 이어서 생성 → 손가락 궤적을 따라감
+    if(pointer.active){
+      const dx=pointer.x-lastRx, dy=pointer.y-lastRy;
+      if(dx*dx+dy*dy > 24*24){                     // 약 24px 이동마다
+        spawnRipple(pointer.x, pointer.y, 0.5);
+      }
+    }
+  }, {passive:true});
+  window.addEventListener("pointerup",   ()=>{ pointer.active=false; }, {passive:true});
+  window.addEventListener("pointercancel",()=>{ pointer.active=false; }, {passive:true});
+
+  function start(){ resize(); build(); cancelAnimationFrame(raf); draw(); }
+  window.addEventListener("resize", ()=>{ resize(); build(); });
+  document.addEventListener("visibilitychange", ()=>{
+    if(document.hidden){ cancelAnimationFrame(raf); }
+    else { draw(); }
+  });
+  start();
+})();
+
+/* ── 페이지 로직 ─────────────────────────────────────────── */
+const app = document.getElementById("app");
+const vid = new URLSearchParams(location.search).get("v");
+const valid = vid && /^[A-Za-z0-9_-]{1,64}$/.test(vid);
+
+if(!valid){
+  app.outerHTML = `
+    <div class="state">
+      <div class="code">No Signal · 404</div>
+      <h2>영상을 찾을 수 없어요</h2>
+      <p>영수증의 QR 코드를 다시 스캔해 주세요.<br>코드가 손상되었을 수 있습니다.</p>
+    </div>`;
+} else {
+  const url = `${CONFIG.R2_BASE}/${vid}${CONFIG.EXT}`;
+  const filename = `${CONFIG.DOWNLOAD_PREFIX}${vid}${CONFIG.EXT}`;
+
+  app.className = "wrap";
+  app.innerHTML = `
+    <header class="topbar">
+      <div class="eyebrow"><span class="node"></span>Signal Captured</div>
+      <div class="brand"><b>${CONFIG.TITLE}</b><span>${CONFIG.SUBTITLE}</span></div>
+    </header>
+
+    <div class="stage">
+      <div class="frame" id="frame">
+        <div class="scan"></div>
+        <video id="v" src="${url}" autoplay muted loop playsinline preload="auto"></video>
+        <div class="fallback">미리보기를 불러올 수 없습니다<br>아래 버튼으로 저장해 보세요</div>
+        <div class="idtag">ID · ${vid}</div>
+        <div class="tc" id="tc">00:00</div>
+      </div>
+    </div>
+
+    <div class="head">
+      <h1>당신의 흔적이<br><em>기록</em>되었습니다.</h1>
+      <p>노브를 돌려 만든 이 순간은 다시 오지 않습니다. 아래에서 영상을 저장하세요.</p>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="actions">
+      <button class="btn primary" id="dl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>
+        영상 저장하기
+      </button>
+      <button class="btn ghost" id="share">공유하기</button>
+    </div>
+
+    <div class="meta">
+      <span>Captured Moment</span>
+      <span class="dot">◦</span>
+      <span>${CONFIG.EXT.replace('.','').toUpperCase()} · 5S</span>
+    </div>`;
+
+  const frame = document.getElementById("frame");
+  const v = document.getElementById("v");
+  const tc = document.getElementById("tc");
+
+  // 영상 실제 비율에 맞춰 프레임 조정 (세로/가로 자동)
+  v.addEventListener("loadedmetadata", ()=>{
+    if(v.videoWidth && v.videoHeight){
+      frame.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+    }
+  });
+  v.addEventListener("timeupdate", ()=>{
+    tc.textContent = "00:" + String(Math.floor(v.currentTime)).padStart(2,"0");
+  });
+  v.addEventListener("error", ()=>{ frame.classList.add("error"); });
+
+  // 저장: blob 강제 다운로드 → 실패 시 새 탭
+  const dl = document.getElementById("dl");
+  const orig = dl.innerHTML;
+  dl.addEventListener("click", async ()=>{
+    dl.disabled = true;
+    dl.innerHTML = `<span class="spin"></span> 저장 중…`;
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error(res.status);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      dl.innerHTML = `저장 완료 ✓`;
+    }catch(e){
+      window.open(url, "_blank");
+      dl.innerHTML = `새 탭에서 열림`;
+    }finally{
+      setTimeout(()=>{ dl.disabled=false; dl.innerHTML=orig; }, 2200);
+    }
+  });
+
+  // 공유
+  const share = document.getElementById("share");
+  share.addEventListener("click", async ()=>{
+    if(navigator.share){
+      try{ await navigator.share({title:CONFIG.TITLE, url:location.href}); }catch(e){}
+    }else{
+      try{
+        await navigator.clipboard.writeText(location.href);
+        share.textContent="링크 복사됨 ✓";
+        setTimeout(()=>share.textContent="공유하기",1800);
+      }catch(e){}
+    }
+  });
+}
 </script>
 </body>
 </html>
