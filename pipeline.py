@@ -48,6 +48,12 @@ CONFIG = {
 
     # 처리 끝난 원본을 옮겨둘 폴더 (재처리 방지). None이면 그냥 둠.
     "DONE_FOLDER": r"C:\touch_signal\_done",
+
+    # ── 순번(카운터) 설정 : XIST_037 형식 ──
+    "ID_PREFIX":  "XIST_",             # 파일/URL 접두어 (index.html DOWNLOAD_PREFIX와 동일하게)
+    "ID_START":   1,                   # 시작 번호
+    "ID_PAD":     3,                   # 최소 자릿수 (037). 넘으면 자동 확장(1000...)
+    "COUNTER_FILE": "counter.txt",     # 마지막 번호 저장 파일 (재시작해도 이어짐)
 }
 # ═══════════════════════════════════════════════════════════════
 # ▲▲▲ CONFIG 끝 ▲▲▲
@@ -116,9 +122,26 @@ def print_receipt(qr_img, vid):
     p.image(qr_img)                            # QR
     p.text("\n" + CONFIG["RECEIPT_MSG"] + "\n")
     p.set(align="center")
-    p.text(f"ID {vid}\n")
+    p.text(f"NO. {vid}\n")
     p.text(f"{datetime.now():%Y-%m-%d %H:%M}\n")
     p.cut()
+
+
+def next_id():
+    """다음 순번 ID 생성 (예: XIST_037). counter.txt에 저장해 재시작해도 이어짐."""
+    cfile = CONFIG["COUNTER_FILE"]
+    # 마지막 번호 읽기 (없으면 시작번호-1)
+    try:
+        with open(cfile, "r") as f:
+            last = int(f.read().strip())
+    except (FileNotFoundError, ValueError):
+        last = CONFIG["ID_START"] - 1
+    n = last + 1
+    # 즉시 저장 (충돌 방지)
+    with open(cfile, "w") as f:
+        f.write(str(n))
+    # 최소 자릿수로 채우되, 넘으면 그대로 확장 (037 → 999 → 1000 → 1001)
+    return f"{CONFIG['ID_PREFIX']}{n:0{CONFIG['ID_PAD']}d}"
 
 
 def process(path):
@@ -127,7 +150,7 @@ def process(path):
         log(f"! 파일 안정화 실패, 건너뜀: {path}")
         return
 
-    vid = uuid.uuid4().hex[:10]                # 고유 ID (겹치지 않음)
+    vid = next_id()                           # 순번 ID (예: XIST_037)
     key = f"{vid}{CONFIG['EXT']}"
     try:
         upload_to_r2(path, key)
