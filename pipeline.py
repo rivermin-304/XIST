@@ -31,7 +31,7 @@ CONFIG = {
     "R2_SECRET_KEY":  "XXXXXXXXXXXXXXXXXXXX",
     "R2_BUCKET":      "touch-signal",
     # 버킷 공개 주소 (끝에 / 없이). index.html의 R2_BASE와 반드시 동일!
-    "R2_PUBLIC_BASE": "https://pub-XXXXXXXXXXXX.r2.dev",
+    "R2_PUBLIC_BASE": "https://pub-832ff24e01f04404a5738f9ee7512f62.r2.dev",
 
     # ── 다운로드 페이지 주소 (GitHub Pages). QR에는 이 주소가 들어감 ──
     "PAGE_BASE": "https://rivermin-304.github.io/XIST/",
