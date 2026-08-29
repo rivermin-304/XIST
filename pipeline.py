@@ -28,8 +28,8 @@ CONFIG = {
     # ── Cloudflare R2 ──
     "R2_ACCOUNT_ID":  "04a5a85a97c04e037e10fd036987b174",   # ✅ 확인됨
     # ▼▼ 아래 두 키는 채팅에 노출된 것 폐기하고 "새로 발급"한 값을 직접 입력 ▼▼
-    "R2_ACCESS_KEY":  "여기에_새_Access_Key_ID_입력",
-    "R2_SECRET_KEY":  "여기에_새_Secret_Access_Key_입력",
+    "R2_ACCESS_KEY":  "c906ca7de72f4ab9aeb2caad8e56d580",
+    "R2_SECRET_KEY":  "019f74c4de962c9e0b47c32c4611f35aef43e32dcab132649772381391870de6",
     "R2_BUCKET":      "xist",                               # ✅ 버킷명
     # 버킷 공개 주소 (끝에 / 없이). index.html의 R2_BASE와 반드시 동일!
     "R2_PUBLIC_BASE": "https://pub-832ff24e01f04404a5738f9ee7512f62.r2.dev",  # ✅ 확인됨
