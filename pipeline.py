@@ -28,8 +28,8 @@ CONFIG = {
     # ── Cloudflare R2 ──
     "R2_ACCOUNT_ID":  "04a5a85a97c04e037e10fd036987b174",   # ✅ 확인됨
     # ▼▼ 아래 두 키는 채팅에 노출된 것 폐기하고 "새로 발급"한 값을 직접 입력 ▼▼
-    "R2_ACCESS_KEY":  "c906ca7de72f4ab9aeb2caad8e56d580",
-    "R2_SECRET_KEY":  "019f74c4de962c9e0b47c32c4611f35aef43e32dcab132649772381391870de6",
+    "R2_ACCESS_KEY":  "여기에_새_Access_Key_ID_입력",
+    "R2_SECRET_KEY":  "여기에_새_Secret_Access_Key_입력",
     "R2_BUCKET":      "xist",                               # ✅ 버킷명
     # 버킷 공개 주소 (끝에 / 없이). index.html의 R2_BASE와 반드시 동일!
     "R2_PUBLIC_BASE": "https://pub-832ff24e01f04404a5738f9ee7512f62.r2.dev",  # ✅ 확인됨
@@ -62,6 +62,11 @@ CONFIG = {
 
     # QR 인쇄 크기 (CPP-3000 80mm 용지 기준 6~8 적당)
     "QR_SIZE": 7,
+    # 영수증 상단 로고 이미지 (검은색 PNG). None이면 텍스트 "XIST" 사용
+    # pipeline.py와 같은 폴더에 logo_receipt.png 두면 됨
+    "RECEIPT_LOGO": "logo_receipt.png",
+    # 영수증 한 줄 글자 수 (작은 폰트 기준). 정렬 안 맞으면 이 값 조정
+    "RECEIPT_WIDTH": 48,
 
     # ── 영수증에 인쇄할 문구/정보 (레퍼런스 레이아웃) ──
     "RECEIPT_TITLE": "XIST",
@@ -147,17 +152,51 @@ def make_qr_image(url):
     return qr.make_image(fill_color="black", back_color="white").convert("1")
 
 
+def _detect_usb_endpoints(vid, pid):
+    """프린터의 실제 IN/OUT 엔드포인트 주소를 USB 디스크립터에서 찾는다.
+    HSPOS 등 일부 프린터는 python-escpos 기본값(0x81/0x01)과 다름."""
+    try:
+        import usb.core, usb.util
+        dev = usb.core.find(idVendor=vid, idProduct=pid)
+        if dev is None:
+            return None, None
+        # 첫 설정의 첫 인터페이스에서 벌크 엔드포인트 찾기
+        cfg = dev.get_active_configuration() if dev.get_active_configuration() else dev[0]
+        in_ep = out_ep = None
+        for intf in cfg:
+            for ep in intf:
+                is_bulk = usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_BULK
+                direction = usb.util.endpoint_direction(ep.bEndpointAddress)
+                if is_bulk and direction == usb.util.ENDPOINT_OUT and out_ep is None:
+                    out_ep = ep.bEndpointAddress
+                if is_bulk and direction == usb.util.ENDPOINT_IN and in_ep is None:
+                    in_ep = ep.bEndpointAddress
+            if in_ep is not None and out_ep is not None:
+                break
+        return in_ep, out_ep
+    except Exception:
+        return None, None
+
+
 def make_printer():
     """CONFIG의 PRINTER_MODE에 따라 프린터 연결 객체 생성."""
     mode = CONFIG.get("PRINTER_MODE", "usb")
     profile = CONFIG.get("PRINTER_PROFILE")
     if mode == "usb":
         from escpos.printer import Usb
+        vid, pid = CONFIG["PRINTER_VENDOR_ID"], CONFIG["PRINTER_PRODUCT_ID"]
+        in_ep  = CONFIG.get("USB_IN_EP")
+        out_ep = CONFIG.get("USB_OUT_EP")
+        # CONFIG에 지정 안 됐으면 자동 감지 (Invalid endpoint 오류 방지)
+        if in_ep is None or out_ep is None:
+            d_in, d_out = _detect_usb_endpoints(vid, pid)
+            if in_ep is None:  in_ep = d_in
+            if out_ep is None: out_ep = d_out
         kwargs = {}
-        if CONFIG.get("USB_IN_EP") is not None:  kwargs["in_ep"]  = CONFIG["USB_IN_EP"]
-        if CONFIG.get("USB_OUT_EP") is not None: kwargs["out_ep"] = CONFIG["USB_OUT_EP"]
+        if in_ep is not None:  kwargs["in_ep"]  = in_ep
+        if out_ep is not None: kwargs["out_ep"] = out_ep
         if profile: kwargs["profile"] = profile
-        return Usb(CONFIG["PRINTER_VENDOR_ID"], CONFIG["PRINTER_PRODUCT_ID"], **kwargs)
+        return Usb(vid, pid, **kwargs)
     elif mode == "network":
         from escpos.printer import Network
         return Network(CONFIG["PRINTER_IP"], port=CONFIG.get("PRINTER_PORT", 9100), profile=profile)
@@ -206,52 +245,72 @@ def _fmt_knob(v):
 def print_receipt(qr_img, vid, page_url, knobs=None):
     """레퍼런스 레이아웃 영수증 출력.
     고정: 로고/전시정보/노브이름/QR/마무리문구
-    실시간: 날짜·시간, 노브값, 파일명, QR(다운로드 링크)"""
+    실시간(굵게 강조): 날짜·시간, 노브값, 파일명
+    QR: 다운로드 링크"""
     names = CONFIG["KNOB_NAMES"]
-    # 노브값 정렬 (없으면 전부 00)
+    W = CONFIG.get("RECEIPT_WIDTH", 48)       # 작은 폰트 기준 한 줄 글자 수
     if not knobs:
         knobs = [0] * len(names)
     knobs = (list(knobs) + [0] * len(names))[:len(names)]
 
     p = make_printer()
 
-    # ── 상단: 로고(제목) + 전시정보 (고정) ──
-    p.set(align="center", bold=True, double_height=True, double_width=True)
-    p.text(CONFIG["RECEIPT_TITLE"] + "\n")
-    p.set(align="center", bold=False, double_height=False, double_width=False)
+    # ── 상단: 로고 이미지 (없으면 텍스트 "XIST") ──
+    logo = CONFIG.get("RECEIPT_LOGO")
+    logo_printed = False
+    if logo and os.path.exists(logo):
+        try:
+            p.set(align="center")
+            p.image(logo)
+            logo_printed = True
+        except Exception:
+            logo_printed = False
+    if not logo_printed:
+        p.set(align="center", bold=True, double_height=True, double_width=True)
+        p.text(CONFIG["RECEIPT_TITLE"] + "\n")
+
+    # ── 전시정보 (고정, 작은 폰트) ──
+    p.set(align="center", bold=False, double_height=False, double_width=False,
+          custom_size=True, width=1, height=1)
     p.text(CONFIG["EXH_LINE1"] + "\n")
     p.text(CONFIG["EXH_LINE2"] + "\n")
 
-    # ── 날짜/시간 (실시간) ──
-    p.set(align="left")
+    # ── 날짜/시간 (실시간, 굵게) ──
+    p.set(align="left", bold=True, custom_size=True, width=1, height=1)
     now = datetime.now()
-    # 예: 2026-09-15 TUE, 12:00pm
     stamp = now.strftime("%Y-%m-%d %a, ") + now.strftime("%I:%M%p").lstrip("0").lower()
     p.text(stamp + "\n")
-    p.text("-" * 42 + "\n")
+    p.set(bold=False)
+    p.text("-" * W + "\n")
 
-    # ── 노브 목록 (이름 고정 + 값 실시간) ──
+    # ── 노브 목록 (이름 왼쪽 고정 + 값 오른쪽 굵게, 한 줄) ──
     for i, name in enumerate(names):
         label = f"Knob {i+1} : {name}"
         val = _fmt_knob(knobs[i])
-        # 좌측 라벨 + 우측 값 정렬 (42칸 폭)
-        pad = 42 - len(label) - len(val)
+        pad = W - len(label) - len(val)
         if pad < 1: pad = 1
-        p.text(label + " " * pad + val + "\n")
-
-    p.text("-" * 42 + "\n")
-
-    # ── 파일명 (실시간, TOTAL 자리) ──
-    total_label = "TOTAL :"
-    pad = 42 - len(total_label) - len(vid)
-    if pad < 1: pad = 1
-    p.set(bold=True)
-    p.text(total_label + " " * pad + vid + "\n")
+        # 라벨(보통) 출력 후 값(굵게)만 강조 → 같은 줄
+        p.set(bold=False, custom_size=True, width=1, height=1)
+        p.text(label + " " * pad)
+        p.set(bold=True)
+        p.text(val + "\n")
     p.set(bold=False)
-    p.text("-" * 42 + "\n\n")
+    p.text("-" * W + "\n")
+
+    # ── 파일명 (실시간, TOTAL 자리, 굵게) ──
+    total_label = "TOTAL :"
+    pad = W - len(total_label) - len(vid)
+    if pad < 1: pad = 1
+    p.set(bold=False, custom_size=True, width=1, height=1)
+    p.text(total_label + " " * pad)
+    p.set(bold=True)
+    p.text(vid + "\n")
+    p.set(bold=False)
+    p.text("-" * W + "\n\n")
 
     # ── QR (다운로드 링크) ──
     try:
+        p.set(align="center")
         p.qr(page_url, size=CONFIG.get("QR_SIZE", 7), center=True)
     except Exception:
         p.set(align="center")
@@ -259,7 +318,7 @@ def print_receipt(qr_img, vid, page_url, knobs=None):
 
     # ── 하단 마무리 (고정) ──
     p.text("\n")
-    p.set(align="center", bold=True)
+    p.set(align="center", bold=True, custom_size=True, width=1, height=1)
     p.text(CONFIG["RECEIPT_FOOTER1"] + "\n")
     p.set(align="center", bold=False)
     p.text(CONFIG["RECEIPT_FOOTER2"] + "\n")
